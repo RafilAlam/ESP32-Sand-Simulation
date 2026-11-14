@@ -33,7 +33,7 @@ bool adxl_init() {
   return true;
 }
 
-void adxl_readaccel(floatvec3& vec3) {
+void adxl_readaccel(FVec3& vec3) {
   uint8_t buf[6];
   SPI.beginTransaction(adxlSettings);
   digitalWrite(ADXL_CS, LOW);
@@ -43,6 +43,6 @@ void adxl_readaccel(floatvec3& vec3) {
   SPI.endTransaction();
 
   vec3.x = (int16_t)((buf[1] << 8) | buf[0]) * 0.038245f;
-  vec3.y = (int16_t)((buf[3] << 8) | buf[2]) * 0.038245f;
+  vec3.y = (int16_t)((buf[3] << 8) | buf[2]) * -0.038245f;
   vec3.z = (int16_t)((buf[5] << 8) | buf[4]) * 0.038245f;
 }

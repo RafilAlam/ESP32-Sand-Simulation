@@ -1,13 +1,82 @@
 #include <ssd1306.h>
 
 uint8_t framebuffer[SCREEN_WIDTH * NUM_PAGES];
-uint8_t displayedbuffer[SCREEN_WIDTH * NUM_PAGES];
+uint8_t displaybuffer[SCREEN_WIDTH * NUM_PAGES];
 
 void ssd1306_command(uint8_t cmd) {
   Wire.beginTransmission(SSD_ADDRESS);
   Wire.write(0x00); // Control byte: Command mode
   Wire.write(cmd);
   Wire.endTransmission();
+}
+
+void ssd1306_setCursor(uint8_t col, uint8_t page) {
+  Wire.beginTransmission(SSD_ADDRESS);
+  Wire.write(0x00);             // Command mode
+  Wire.write(0x21);             // Set Column Address
+  Wire.write(col);              // Start col
+  Wire.write(SCREEN_WIDTH - 1); // End col (127)
+  Wire.write(0x22);             // Set Page Address
+  Wire.write(page);             // Start page
+  Wire.write(page);             // End page (stay on this page)
+  Wire.endTransmission();
+}
+
+void ssd_display() {
+  for (uint8_t page = 0; page < NUM_PAGES; page++) {
+    uint16_t offset = page * SCREEN_WIDTH;
+    uint8_t col = 0;
+
+    while (col < SCREEN_WIDTH) {
+      while (col < SCREEN_WIDTH && framebuffer[offset + col] == displaybuffer[offset + col]) {
+        col++;
+      }
+
+      if (col >= SCREEN_WIDTH) break;
+
+      ssd1306_setCursor(col, page);
+
+      while (col < SCREEN_WIDTH) {
+        uint8_t cleanRun = 0;
+        while ((col + cleanRun) < SCREEN_WIDTH && framebuffer[offset + col + cleanRun] == displaybuffer[offset + col + cleanRun]) {
+          cleanRun++;
+        }
+
+        if ((col + cleanRun) >= SCREEN_WIDTH || cleanRun > GAP_THRESHOLD) {
+          col += cleanRun;
+          break;
+        }
+
+        Wire.beginTransmission(SSD_ADDRESS);
+        Wire.write(0x40); // Data mode
+
+        uint8_t packetBytes = 0;
+        while (col < SCREEN_WIDTH && packetBytes < 127) {
+          if (framebuffer[offset + col] == displaybuffer[offset + col]) {
+            uint8_t upcomingClean = 0;
+            while ((col + upcomingClean) < SCREEN_WIDTH && framebuffer[offset + col + upcomingClean] == displaybuffer[offset + col + upcomingClean]) {
+              upcomingClean++;
+            }
+            if ((col + upcomingClean) >= SCREEN_WIDTH || upcomingClean > GAP_THRESHOLD) {
+              break;
+            }
+          }
+
+          uint8_t b = framebuffer[offset + col];
+          Wire.write(b);
+          displaybuffer[offset + col] = b;
+          col++;
+          packetBytes++;
+        }
+
+        Wire.endTransmission();
+      }
+    }
+  }
+}
+
+void ssd_clear() {
+  memset(framebuffer, 0x00, sizeof(framebuffer));
 }
 
 void ssd_init() {
@@ -40,73 +109,8 @@ void ssd_init() {
   ssd1306_command(0xA4); // Entire Display ON (resume from RAM)
   ssd1306_command(0xA6); // Normal display (0xA7 for inverted)
   ssd1306_command(0xAF); // Display ON
-}
 
-void ssd1306_setCursor(uint8_t col, uint8_t page) {
-  Wire.beginTransmission(SSD_ADDRESS);
-  Wire.write(0x00);             // Command mode
-  Wire.write(0x21);             // Set Column Address
-  Wire.write(col);              // Start col
-  Wire.write(SCREEN_WIDTH - 1); // End col (127)
-  Wire.write(0x22);             // Set Page Address
-  Wire.write(page);             // Start page
-  Wire.write(page);             // End page (stay on this page)
-  Wire.endTransmission();
-}
-
-void ssd_display() {
-  for (uint8_t page = 0; page < NUM_PAGES; page++) {
-    uint16_t offset = page * SCREEN_WIDTH;
-    uint8_t col = 0;
-
-    while (col < SCREEN_WIDTH) {
-      while (col < SCREEN_WIDTH && framebuffer[offset + col] == displayedbuffer[offset + col]) {
-        col++;
-      }
-
-      if (col >= SCREEN_WIDTH) break;
-
-      ssd1306_setCursor(col, page);
-
-      while (col < SCREEN_WIDTH) {
-        uint8_t cleanRun = 0;
-        while ((col + cleanRun) < SCREEN_WIDTH && framebuffer[offset + col + cleanRun] == displayedbuffer[offset + col + cleanRun]) {
-          cleanRun++;
-        }
-
-        if ((col + cleanRun) >= SCREEN_WIDTH || cleanRun > GAP_THRESHOLD) {
-          col += cleanRun;
-          break;
-        }
-
-        Wire.beginTransmission(SSD_ADDRESS);
-        Wire.write(0x40); // Data mode
-
-        uint8_t packetBytes = 0;
-        while (col < SCREEN_WIDTH && packetBytes < 127) {
-          if (framebuffer[offset + col] == displayedbuffer[offset + col]) {
-            uint8_t upcomingClean = 0;
-            while ((col + upcomingClean) < SCREEN_WIDTH && framebuffer[offset + col + upcomingClean] == displayedbuffer[offset + col + upcomingClean]) {
-              upcomingClean++;
-            }
-            if ((col + upcomingClean) >= SCREEN_WIDTH || upcomingClean > GAP_THRESHOLD) {
-              break;
-            }
-          }
-
-          uint8_t b = framebuffer[offset + col];
-          Wire.write(b);
-          displayedbuffer[offset + col] = b;
-          col++;
-          packetBytes++;
-        }
-
-        Wire.endTransmission();
-      }
-    }
-  }
-}
-
-void ssd_clear() {
-  memset(framebuffer, 0x00, sizeof(framebuffer));
+  memset(displaybuffer, 0x00, sizeof(displaybuffer));
+  memset(framebuffer, 0xFF, sizeof(framebuffer));
+  ssd_display();
 }

@@ -10,7 +10,7 @@
 
 #define ACCEL_DEADZONE 0.1f
 
-struct floatvec3 {
+struct FVec3 {
   float x;
   float y;
   float z;
@@ -21,4 +21,4 @@ uint8_t adxl_read(uint8_t reg);
 
 bool adxl_init();
 
-void adxl_readaccel(floatvec3& vec3);
+void adxl_readaccel(FVec3& vec3);

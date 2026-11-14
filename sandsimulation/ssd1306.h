@@ -12,7 +12,7 @@
 #define GAP_THRESHOLD 8
 
 extern uint8_t framebuffer[SCREEN_WIDTH * NUM_PAGES];
-extern uint8_t displayedbuffer[SCREEN_WIDTH * NUM_PAGES];
+extern uint8_t displaybuffer[SCREEN_WIDTH * NUM_PAGES];
 
 void ssd_init();
 void ssd_setCursor(uint8_t col, uint8_t page);
