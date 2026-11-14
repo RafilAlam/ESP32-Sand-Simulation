@@ -8,7 +8,7 @@
 #define ADXL_MOSI 6
 #define ADXL_CS 7
 
-#define ACCEL_DEADZONE 0.1f
+#define ACCEL_DEADZONE 0.4f
 
 struct FVec3 {
   float x;

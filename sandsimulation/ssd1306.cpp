@@ -1,5 +1,6 @@
 #include <ssd1306.h>
 
+uint8_t transferbuffer[1025];
 uint8_t framebuffer[SCREEN_WIDTH * NUM_PAGES];
 uint8_t displaybuffer[SCREEN_WIDTH * NUM_PAGES];
 
@@ -110,7 +111,7 @@ void ssd_init() {
   ssd1306_command(0xA6); // Normal display (0xA7 for inverted)
   ssd1306_command(0xAF); // Display ON
 
-  memset(displaybuffer, 0x00, sizeof(displaybuffer));
-  memset(framebuffer, 0xFF, sizeof(framebuffer));
+  memset(displaybuffer, 0xFF, sizeof(displaybuffer));
+  memset(framebuffer, 0x00, sizeof(framebuffer));
   ssd_display();
 }

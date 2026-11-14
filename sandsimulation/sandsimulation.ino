@@ -12,6 +12,7 @@ float magnitude(const FVec2& vec) {
 
 FVec2 normal(const FVec2& vec) {
   float mag = magnitude(vec);
+  Serial.printf("%f, %f", mag, vec.x);
   return FVec2{vec.x / mag, vec.y / mag};
 }
 
@@ -62,9 +63,8 @@ void setup() {
 }
 
 FVec3 accel_reading;
-bool changed;
 
-FVec2 neighbouroffset[8] = {
+IVec2 neighbouroffset[8] = {
   {-1, -1}, {0, -1}, {1,-1},
   {-1, 0},           {1, 0},
   {-1, 1}, {0, 1},   {1, 1}
@@ -72,51 +72,57 @@ FVec2 neighbouroffset[8] = {
 
 float score[8];
 
+IVec2 activepixels[8192];
+uint16_t activepixelcount = 0;
+
 void loop() {
+  int64_t looptime = esp_timer_get_time();
   uint8_t leftbutton = digitalRead(BUTTON_LEFT);
   uint8_t rightbutton = digitalRead(BUTTON_RIGHT);
 
   adxl_readaccel(accel_reading);
 
   if (rightbutton == LOW) {
+    activepixels[activepixelcount++] = {64, 0};
     pixel_set(pixel_get(framebuffer, IVec2(64, 0)));
   }
 
   FVec2 gravitydir = normal(FVec2{accel_reading.x, accel_reading.y});
-  for (uint32_t x=0; x<SCREEN_WIDTH; ++x) {
-    for (uint32_t y=0; y<SCREEN_HEIGHT; ++y) {
-      FVec2 currpos{x, y};
-      if (!pixel_exists(currpos) || !pixel_read(pixel_get(displaybuffer, currpos)))
+
+  int64_t computetime = esp_timer_get_time();
+  for (int i=0; i<activepixelcount; ++i) {
+    IVec2& currpos = activepixels[i];
+    float highscore = 0.0f;
+    int8_t bestoffset{-1};
+    for (uint8_t j=0; j<8; ++j) {
+      IVec2 movepos = currpos + neighbouroffset[j];
+      if (!pixel_exists(movepos) || pixel_read(pixel_get(displaybuffer, movepos)) || pixel_read(pixel_get(framebuffer, movepos))) {
+        score[j] = -100.0f;
         continue;
-
-      float highestscore = 0.0f;
-      int8_t bestoffset{-1};
-      for (uint8_t i=0; i<8; ++i) {
-        IVec2 movepos = currpos + neighbouroffset[i];
-        if (!pixel_exists(movepos) || pixel_read(pixel_get(displaybuffer, movepos)) || pixel_read(pixel_get(framebuffer, movepos))) {
-          score[i] = -100.0f;
-          continue;
-        }
-
-        score[i] = dot(gravitydir, neighbouroffset[i]);
-        if (score[i] > highestscore) {
-          highestscore = score[i];
-          bestoffset = i;
-        }
       }
-      if (bestoffset == -1)
-        continue;
 
-      FVec2 bestmove = currpos + neighbouroffset[bestoffset];
-      Pixel currpixel = pixel_get(framebuffer, IVec2(x, y));
-      Pixel nextpixel = pixel_get(framebuffer, IVec2(bestmove));
-      pixel_move(currpixel, nextpixel);
+      score[j] = dot(gravitydir, neighbouroffset[j]);
+      if (score[j] > highscore) {
+        highscore = score[j];
+        bestoffset = j;
+      }
     }
+    if (bestoffset == -1)
+      continue;
+
+    Pixel currpixel = pixel_get(framebuffer, currpos);
+
+    currpos = currpos + neighbouroffset[bestoffset];
+    Pixel nextpixel = pixel_get(framebuffer, currpos);
+    pixel_move(currpixel, nextpixel);
   }
+  Serial.printf("[COMPUTE]: %lld us", esp_timer_get_time() - computetime);
 
   if (leftbutton == LOW) {
+    activepixelcount = 0;
     ssd_clear();
   }
 
   ssd_display();
+  Serial.printf("[LOOP]: %lld us\n", esp_timer_get_time() - looptime);
 }
