@@ -46,8 +46,8 @@ void adxl_readaccel(FVec3& vec3) {
   vec3.y = (int16_t)((buf[3] << 8) | buf[2]) * -0.038245f;
   vec3.z = (int16_t)((buf[5] << 8) | buf[4]) * 0.038245f;
 
-  if (vec3.x < ACCEL_DEADZONE && vec3.x > -ACCEL_DEADZONE)
+  if (abs(vec3.x) < ACCEL_DEADZONE)
     vec3.x = 0.0f;
-  if (vec3.y < ACCEL_DEADZONE && vec3.y > -ACCEL_DEADZONE)
+  if (abs(vec3.y) < ACCEL_DEADZONE)
     vec3.y = 0.0f;
 }

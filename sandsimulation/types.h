@@ -5,10 +5,7 @@ struct IVec2 {
   int16_t y;
 
   IVec2() = default;
-  IVec2(int16_t a, int16_t b) {
-    x = a;
-    y = b;
-  }
+  IVec2(int16_t a, int16_t b): x(a), y(b) {}
   IVec2 operator+(const IVec2& rhs) const {
     return IVec2(x+rhs.x,  y+rhs.y);
   }
@@ -20,10 +17,8 @@ struct IVec2 {
 struct FVec2 {
   float x;
   float y;
-  FVec2(float a, float b) {
-    x = a;
-    y = b;
-  }
+  FVec2() = default;
+  FVec2(float a, float b): x(a), y(b) {}
   FVec2(int16_t a, int16_t b) {
     x = a;
     y = b;
@@ -35,9 +30,27 @@ struct FVec2 {
   FVec2 operator+(const FVec2& rhs) const {
     return FVec2(x+rhs.x,  y+rhs.y);
   }
+  FVec2& operator+=(const FVec2& rhs) {
+    x += rhs.x;
+    y += rhs.y;
+    return *this;
+  }
   FVec2 operator-(const FVec2& rhs) const {
     return FVec2(x-rhs.x,  y-rhs.y);
   }
+  FVec2 operator*(const float& rhs) const {
+    return FVec2(x*rhs,  y*rhs);
+  }
+  FVec2& operator*=(const float& rhs) {
+    x *= rhs;
+    y *= rhs;
+    return *this;
+  }
+};
+
+struct Cell {
+  IVec2 position;
+  FVec2 velocity;
 };
 
 struct Pixel {
