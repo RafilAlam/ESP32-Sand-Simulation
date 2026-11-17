@@ -6,7 +6,7 @@
 #define BUTTON_LEFT 3
 #define BUTTON_RIGHT 10
 
-#define GRAVITY_MAGNIFIER 0.04f
+#define GRAVITY_MAGNIFIER 0.1f
 
 float magnitude(const FVec2& vec) {
   return sqrtf(vec.x*vec.x + vec.y*vec.y);
@@ -93,7 +93,7 @@ void loop() {
     adxl_readaccel(accel_reading);
     FVec2 gravity{accel_reading.x, accel_reading.y};
 
-    if (rightbutton == LOW) {
+    if (rightbutton == LOW && activepixelcount < 8192) {
       IVec2 spawnpos;
       spawnpos = {64, gravity.y > 0 ? 0 : 63};
 
@@ -113,11 +113,7 @@ void loop() {
 
       IVec2 roundedvelocity = fast_round(curr.velocity);
       IVec2 movepos = curr.position + roundedvelocity;
-      if (!pixel_exists(movepos)) {
-        curr.velocity *= 0.2f;
-        continue;
-      }
-      else if (pixel_read(pixel_get(framebuffer, movepos))) {
+      if (!pixel_exists(movepos) || pixel_read(pixel_get(framebuffer, movepos))) {
         if (movepos.x != curr.position.x && movepos.y != curr.position.y) { // Diagonal
           IVec2 slide_offsets[2] = {IVec2{roundedvelocity.x, 0}, IVec2{0, roundedvelocity.y}};
           if (abs(curr.velocity.x) <= abs(curr.velocity.y))
