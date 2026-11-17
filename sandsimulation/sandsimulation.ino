@@ -6,7 +6,7 @@
 #define BUTTON_LEFT 3
 #define BUTTON_RIGHT 10
 
-#define GRAVITY_MAGNIFIER 0.1f
+#define GRAVITY_MAGNIFIER 0.01f
 
 float magnitude(const FVec2& vec) {
   return sqrtf(vec.x*vec.x + vec.y*vec.y);
@@ -28,6 +28,10 @@ int16_t fast_round(float x) {
 
 IVec2 fast_round(const FVec2& vec) {
   return {fast_round(vec.x), fast_round(vec.y)};
+}
+
+IVec2 ceilf(const FVec2& vec) {
+  return {ceilf(vec.x), ceilf(vec.y)};
 }
 
 static inline bool pixel_exists(IVec2 coord) {
@@ -97,6 +101,7 @@ void loop() {
       IVec2 spawnpos;
       spawnpos = {64, gravity.y > 0 ? 0 : 63};
 
+      activepixels[activepixelcount].pixelcoord = spawnpos;
       activepixels[activepixelcount++].position = spawnpos;
       pixel_set(pixel_get(framebuffer, spawnpos));
     }
@@ -107,70 +112,66 @@ void loop() {
     for (int i=0; i<activepixelcount; ++i) {
       Cell& curr = activepixels[i];
       curr.velocity += gravity;
-      curr.velocity *= 0.99f;
+      //curr.velocity *= 0.99f;
       curr.velocity.x = max(min(curr.velocity.x, 1.0f), -1.0f);
       curr.velocity.y = max(min(curr.velocity.y, 1.0f), -1.0f);
 
+      Pixel currpixel = pixel_get(framebuffer, curr.pixelcoord);
       IVec2 roundedvelocity = fast_round(curr.velocity);
-      IVec2 movepos = curr.position + roundedvelocity;
+      FVec2 floatingmovepos = curr.position + curr.velocity;
+      IVec2 movepos = fast_round(floatingmovepos);
+      if (movepos==curr.pixelcoord) {
+        curr.position = floatingmovepos;
+        continue;
+      }
+
       if (!pixel_exists(movepos) || pixel_read(pixel_get(framebuffer, movepos))) {
-        if (movepos.x != curr.position.x && movepos.y != curr.position.y) { // Diagonal
+        if (movepos.x != curr.pixelcoord.x && movepos.y != curr.pixelcoord.y) { // Diagonal
           IVec2 slide_offsets[2] = {IVec2{roundedvelocity.x, 0}, IVec2{0, roundedvelocity.y}};
           if (abs(curr.velocity.x) <= abs(curr.velocity.y))
             std::swap(slide_offsets[0], slide_offsets[1]);
-          bool moved = false;
           for (uint8_t i=0; i<2; ++i) {
-            IVec2 slidepos = curr.position + slide_offsets[i];
-            if (pixel_exists(slidepos) && !pixel_read(pixel_get(framebuffer, slidepos))) {
-              movepos = slidepos;
-              moved = true;
+            IVec2 slidepos = curr.pixelcoord + slide_offsets[i];
+            if (pixel_exists(slidepos) && (slidepos==curr.pixelcoord || !pixel_read(pixel_get(framebuffer, slidepos)))) {
+              curr.position = slidepos;
+              curr.pixelcoord = slidepos;
               break;
             }
           }
-          if (!moved)
-            continue;
         }
-        else if (movepos.x != curr.position.x) { // Moving in X
+        else if (movepos.x != curr.pixelcoord.x) { // Moving in X
           int16_t slide_offsets[2] = {1, -1};
           if (curr.velocity.y < 0)
             std::swap(slide_offsets[0], slide_offsets[1]);
-          bool moved = false;
           for (uint8_t i=0; i<2; ++i) {
-            IVec2 slidepos = curr.position + IVec2{roundedvelocity.x, slide_offsets[i]};
-            if (pixel_exists(slidepos) && !pixel_read(pixel_get(framebuffer, slidepos))) {
-              movepos = slidepos;
-              moved = true;
+            IVec2 slidepos = curr.pixelcoord + IVec2{roundedvelocity.x, slide_offsets[i]};
+            if (pixel_exists(slidepos) && (slidepos==curr.pixelcoord || !pixel_read(pixel_get(framebuffer, slidepos)))) {
+              curr.position = slidepos;
+              curr.pixelcoord = slidepos;
               break;
             }
           }
-          if (!moved) // No movement
-            continue;
         }
-        else if (movepos.y != curr.position.y) { // Moving in Y
+        else if (movepos.y != curr.pixelcoord.y) { // Moving in Y
           int16_t slide_offsets[2] = {1, -1};
           if (curr.velocity.x < 0)
             std::swap(slide_offsets[0], slide_offsets[1]);
-          bool moved = false;
           for (uint8_t i=0; i<2; ++i) {
-            IVec2 slidepos = curr.position + IVec2{slide_offsets[i], roundedvelocity.y};
+            IVec2 slidepos = curr.pixelcoord + IVec2{slide_offsets[i], roundedvelocity.y};
             if (pixel_exists(slidepos) && !pixel_read(pixel_get(framebuffer, slidepos))) {
-              movepos = slidepos;
-              moved = true;
+              curr.position = slidepos;
+              curr.pixelcoord = slidepos;
               break;
             }
           }
-          if (!moved) // No movement
-            continue;
-        }
-        else { // Stationary
-          continue;
         }
       }
+      else{
+        curr.position = floatingmovepos;
+        curr.pixelcoord = movepos;
+      }
 
-      Pixel currpixel = pixel_get(framebuffer, curr.position);
-
-      curr.position = movepos;
-      Pixel nextpixel = pixel_get(framebuffer, curr.position);
+      Pixel nextpixel = pixel_get(framebuffer, curr.pixelcoord);
       pixel_move(currpixel, nextpixel);
     }
     //Serial.printf("[COMPUTE]: %lld us", esp_timer_get_time() - computetime);

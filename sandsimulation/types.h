@@ -12,6 +12,9 @@ struct IVec2 {
   IVec2 operator-(const IVec2& rhs) const {
     return IVec2(x-rhs.x,  y-rhs.y);
   }
+  bool operator==(const IVec2& rhs) const {
+    return x==rhs.x && y==rhs.y;
+  }
 };
 
 struct FVec2 {
@@ -49,7 +52,8 @@ struct FVec2 {
 };
 
 struct Cell {
-  IVec2 position;
+  IVec2 pixelcoord;
+  FVec2 position;
   FVec2 velocity;
 };
 
