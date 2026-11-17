@@ -6,7 +6,7 @@
 #define BUTTON_LEFT 3
 #define BUTTON_RIGHT 10
 
-#define GRAVITY_MAGNIFIER 0.01f
+#define GRAVITY_MAGNIFIER 0.04f
 
 float magnitude(const FVec2& vec) {
   return sqrtf(vec.x*vec.x + vec.y*vec.y);
@@ -112,7 +112,7 @@ void loop() {
     for (int i=0; i<activepixelcount; ++i) {
       Cell& curr = activepixels[i];
       curr.velocity += gravity;
-      //curr.velocity *= 0.99f;
+      curr.velocity *= 0.99f;
       curr.velocity.x = max(min(curr.velocity.x, 1.0f), -1.0f);
       curr.velocity.y = max(min(curr.velocity.y, 1.0f), -1.0f);
 
@@ -120,59 +120,76 @@ void loop() {
       IVec2 roundedvelocity = fast_round(curr.velocity);
       FVec2 floatingmovepos = curr.position + curr.velocity;
       IVec2 movepos = fast_round(floatingmovepos);
-      if (movepos==curr.pixelcoord) {
-        curr.position = floatingmovepos;
-        continue;
+      IVec2 nextcoord = curr.pixelcoord;
+      
+      int16_t dir1 = (rand() & 1) ? 1 : -1;
+      int16_t dir2 = -dir1;
+
+      if (nextcoord.x == movepos.x) {
+        curr.position.x = floatingmovepos.x;
+      } else {
+        IVec2 test_coord = {movepos.x, nextcoord.y};
+        if (pixel_exists(test_coord) && !pixel_read(pixel_get(framebuffer, test_coord))) {
+          nextcoord.x = movepos.x;
+          curr.position.x = floatingmovepos.x;
+        } else {
+          // Hit wall or other pixel
+          bool tumbled = false;
+          if (abs(gravity.x) > abs(gravity.y)) {
+            int16_t offsets[2] = {dir1, dir2};
+            for (int j = 0; j < 2; ++j) {
+              IVec2 diag = {movepos.x, nextcoord.y + offsets[j]};
+              if (pixel_exists(diag) && !pixel_read(pixel_get(framebuffer, diag))) {
+                curr.position = FVec2{(float)diag.x, (float)diag.y};
+                nextcoord = diag;
+                tumbled = true;
+                break;
+              }
+            }
+          }
+
+          if (!tumbled) {
+            curr.position.x = static_cast<float>(curr.pixelcoord.x);
+            curr.velocity.x = 0.0f;
+          }
+        }
       }
 
-      if (!pixel_exists(movepos) || pixel_read(pixel_get(framebuffer, movepos))) {
-        if (movepos.x != curr.pixelcoord.x && movepos.y != curr.pixelcoord.y) { // Diagonal
-          IVec2 slide_offsets[2] = {IVec2{roundedvelocity.x, 0}, IVec2{0, roundedvelocity.y}};
-          if (abs(curr.velocity.x) <= abs(curr.velocity.y))
-            std::swap(slide_offsets[0], slide_offsets[1]);
-          for (uint8_t i=0; i<2; ++i) {
-            IVec2 slidepos = curr.pixelcoord + slide_offsets[i];
-            if (pixel_exists(slidepos) && (slidepos==curr.pixelcoord || !pixel_read(pixel_get(framebuffer, slidepos)))) {
-              curr.position = slidepos;
-              curr.pixelcoord = slidepos;
-              break;
+      if (curr.pixelcoord.y == movepos.y) {
+        curr.position.y = floatingmovepos.y;
+      } else {
+        IVec2 test_coord = {nextcoord.x, movepos.y};
+        if (pixel_exists(test_coord) && !pixel_read(pixel_get(framebuffer, test_coord))) {
+          nextcoord.y = movepos.y;
+          curr.position.y = floatingmovepos.y;
+        } else {
+          // Hit wall or other pixel
+          bool tumbled = false;
+          if (abs(gravity.y) > abs(gravity.x)) {
+            int16_t offsets[2] = {dir1, dir2};
+            for (int j = 0; j < 2; ++j) {
+              IVec2 diag = {nextcoord.x + offsets[j], movepos.y};
+              if (pixel_exists(diag) && !pixel_read(pixel_get(framebuffer, diag))) {
+                curr.position = FVec2{(float)diag.x, (float)diag.y};
+                nextcoord = diag;
+                tumbled = true;
+                break;
+              }
             }
           }
-        }
-        else if (movepos.x != curr.pixelcoord.x) { // Moving in X
-          int16_t slide_offsets[2] = {1, -1};
-          if (curr.velocity.y < 0)
-            std::swap(slide_offsets[0], slide_offsets[1]);
-          for (uint8_t i=0; i<2; ++i) {
-            IVec2 slidepos = curr.pixelcoord + IVec2{roundedvelocity.x, slide_offsets[i]};
-            if (pixel_exists(slidepos) && (slidepos==curr.pixelcoord || !pixel_read(pixel_get(framebuffer, slidepos)))) {
-              curr.position = slidepos;
-              curr.pixelcoord = slidepos;
-              break;
-            }
+
+          if (!tumbled) {
+            curr.position.y = static_cast<float>(curr.pixelcoord.y);
+            curr.velocity.y = 0.0f;
           }
         }
-        else if (movepos.y != curr.pixelcoord.y) { // Moving in Y
-          int16_t slide_offsets[2] = {1, -1};
-          if (curr.velocity.x < 0)
-            std::swap(slide_offsets[0], slide_offsets[1]);
-          for (uint8_t i=0; i<2; ++i) {
-            IVec2 slidepos = curr.pixelcoord + IVec2{slide_offsets[i], roundedvelocity.y};
-            if (pixel_exists(slidepos) && !pixel_read(pixel_get(framebuffer, slidepos))) {
-              curr.position = slidepos;
-              curr.pixelcoord = slidepos;
-              break;
-            }
-          }
-        }
-      }
-      else{
-        curr.position = floatingmovepos;
-        curr.pixelcoord = movepos;
       }
 
-      Pixel nextpixel = pixel_get(framebuffer, curr.pixelcoord);
-      pixel_move(currpixel, nextpixel);
+      if (nextcoord != curr.pixelcoord) {
+        curr.pixelcoord = nextcoord;
+        Pixel nextpixel = pixel_get(framebuffer, curr.pixelcoord);
+        pixel_move(currpixel, nextpixel);
+      }
     }
     //Serial.printf("[COMPUTE]: %lld us", esp_timer_get_time() - computetime);
 
